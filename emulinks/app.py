@@ -2,6 +2,7 @@
 
 import io
 import sys
+from pathlib import Path
 
 from emulinks import APP_NAME, APP_VERSION
 from emulinks.core.system import IS_WINDOWS
@@ -13,7 +14,7 @@ def main() -> None:
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
     # Qt y el tema se importan acá: theme resuelve THEME e idioma al importarse.
-    from emulinks.ui.qt import _QT_BACKEND, _exec, QApplication, Qt
+    from emulinks.ui.qt import _QT_BACKEND, _exec, QApplication, QIcon, Qt
     from emulinks.ui.theme import setup_appearance
 
     if IS_WINDOWS:
@@ -44,7 +45,10 @@ def main() -> None:
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
     app.setStyle("Fusion")
-    setup_appearance(app)          # ← fuente + paleta + íconos + QSS + cursor + traducciones Qt
+    icon_path = Path(__file__).resolve().parent / "assets" / "emulinks.png"
+    if icon_path.exists():         # ícono de ventana y barra de tareas
+        app.setWindowIcon(QIcon(str(icon_path)))
+    setup_appearance(app)         # ← fuente + paleta + íconos + QSS + cursor + traducciones Qt
 
     from emulinks.ui.main_window import EmuLinksWindow
     win = EmuLinksWindow()

@@ -13,10 +13,17 @@ ejecutable por sistema; no hace falta instalar Python:
 
 | Archivo | Sistema |
 |---|---|
-| `EmuLinks-windows-x64.exe` | Windows 10/11 64 bits |
-| `EmuLinks-windows-x86.exe` | Windows 7/8/10 32 bits (Qt 5) |
+| `EmuLinks-win10-setup.exe` | Instalador Windows 10/11 (elige x64 o x86 solo) |
+| `EmuLinks-win7-setup.exe` | Instalador Windows 7 SP1 / 8 / 8.1 (elige x64 o x86 solo) |
+| `EmuLinks-win10-x64-portable.exe` / `-x86-portable.exe` | Windows 10/11, sin instalar |
+| `EmuLinks-win7-x64-portable.exe` / `-x86-portable.exe` | Windows 7 SP1 / 8 / 8.1, sin instalar (Qt 5) |
 | `EmuLinks-linux-x86_64.AppImage` / `EmuLinks-linux-x64.tar.gz` | Linux 64 bits (glibc 2.35+, p. ej. Ubuntu 22.04+) |
 | `EmuLinks-linux-i686.AppImage` / `EmuLinks-linux-x86.tar.gz` | Linux 32 bits (Qt 5, glibc 2.36+, p. ej. Debian 12) |
+
+El instalador no pide permisos de administrador (instala para tu usuario;
+podés elegir "para todos") y al desinstalar **no** borra tu configuración ni la
+carpeta compartida. En Windows 7 hace falta el SP1 y la actualización KB2533623
+(viene con Windows Update).
 
 En Linux, el AppImage: `chmod +x EmuLinks-linux-*.AppImage && ./EmuLinks-linux-*.AppImage`
 (si tu distro no tiene FUSE: agregá `--appimage-extract-and-run`).

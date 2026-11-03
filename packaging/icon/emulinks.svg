@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Ícono de EmuLinks: la carpeta compartida guarda los datos del emulador
+       (mando) y el eslabón verde indica que quedan enlazados.
+       Fuente única: packaging/make_icons.py genera .ico y .png desde acá. -->
+  <path d="M20 62a18 18 0 0 1 18-18h58l22 22h100a18 18 0 0 1 18 18v14H20z" fill="#1d62a3"/>
+  <rect x="20" y="84" width="216" height="148" rx="20" fill="#2b7bd0"/>
+  <path d="M76 120h104a36 36 0 0 1 35 44l-10 38a19 19 0 0 1-33 7l-17-21H101l-17 21a19 19 0 0 1-33-7l-10-38a36 36 0 0 1 35-44z"
+        fill="#ffffff"/>
+  <rect x="77" y="146" width="28" height="10" rx="2" fill="#2b7bd0"/>
+  <rect x="86" y="137" width="10" height="28" rx="2" fill="#2b7bd0"/>
+  <circle cx="160" cy="142" r="8" fill="#2b7bd0"/>
+  <circle cx="176" cy="158" r="8" fill="#2b7bd0"/>
+  <circle cx="204" cy="204" r="44" fill="#2e9d5b" stroke="#ffffff" stroke-width="8"/>
+  <g fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round">
+    <rect x="167" y="190" width="46" height="28" rx="14" transform="rotate(-40 190 204)"/>
+    <rect x="195" y="190" width="46" height="28" rx="14" transform="rotate(-40 218 204)"/>
+  </g>
+</svg>

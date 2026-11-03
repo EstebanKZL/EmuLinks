@@ -1,13 +1,18 @@
-# Prueba y compila EmuLinks portable (un solo ejecutable) para 4 destinos.
-# PyInstaller no compila "cruzado": cada destino se arma en su propio sistema.
-#   windows-x64  Python 3.12 + PySide6
-#   windows-x86  Python 3.10 32 bits + PySide2 (Qt6/PySide6 no existe en 32 bits)
-#   linux-x64    Ubuntu 22.04 + PySide6 (glibc 2.35: corre en distros de 2022 en adelante)
-#   linux-x86    contenedor Debian 12 i386 + PySide2 de los paquetes de Debian
-# Linux sale en dos formatos: AppImage (onedir empaquetado) y tar.gz (onefile).
+# Prueba y compila EmuLinks. PyInstaller no compila "cruzado": cada destino se
+# arma en su propio sistema.
+#   win10 x64   Python 3.12 + PySide6                 Windows 10/11 64 bits
+#   win10 x86   Python 3.10 32 bits + PySide2         Windows 10 32 bits (Qt6 no existe en 32 bits)
+#   win7  x64   Python 3.8 + PySide2 + PyInstaller 5  Windows 7 SP1 / 8 / 8.1 64 bits
+#   win7  x86   Python 3.8 32 bits + PySide2          Windows 7 SP1 / 8 / 8.1 32 bits
+#   linux-x64   Ubuntu 22.04 + PySide6 (glibc 2.35+)
+#   linux-x86   contenedor Debian 12 i386 + PySide2 de los paquetes de Debian
+# Windows: exe portable (onefile) + instalador Inno Setup por generación (x64 y
+# x86 en el mismo setup). Linux: AppImage (onedir) + tar.gz (onefile).
+# Python 3.8 es el último que corre en Windows 7: el código no puede usar
+# sintaxis ni librería estándar posterior (lo verifica el job win7).
 # No usar --collect-data PySide6: mete todos los binarios de Qt (+150 MB); el
 # hook de PyInstaller ya trae las traducciones (qtbase_es.qm).
-# Un tag vX.Y publica los 4 ejecutables como Release en GitHub.
+# Un tag vX.Y publica todo como Release en GitHub.
 name: build
 
 on:
@@ -26,13 +31,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - arch: x64
-            python: "3.12"
-            qt: PySide6
-          - arch: x86
-            python: "3.10"
-            qt: PySide2==5.15.2.1
+          - { gen: win10, arch: x64, python: "3.12", qt: "PySide6",           pyi: "pyinstaller" }
+          - { gen: win10, arch: x86, python: "3.10", qt: "PySide2==5.15.2.1", pyi: "pyinstaller" }
+          - { gen: win7,  arch: x64, python: "3.8",  qt: "PySide2==5.15.2.1", pyi: "pyinstaller==5.13.2" }
+          - { gen: win7,  arch: x86, python: "3.8",  qt: "PySide2==5.15.2.1", pyi: "pyinstaller==5.13.2" }
+    name: windows (${{ matrix.gen }} ${{ matrix.arch }})
     runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -40,20 +47,81 @@ jobs:
           python-version: ${{ matrix.python }}
           architecture: ${{ matrix.arch }}
       - name: Dependencias
-        run: python -m pip install "${{ matrix.qt }}" pyinstaller pytest
+        run: python -m pip install "${{ matrix.qt }}" "${{ matrix.pyi }}" pytest
       - name: Tests
         env:
           QT_QPA_PLATFORM: offscreen
         run: python -m pytest -q tests
       - name: Compilar
-        run: pyinstaller --noconsole --onefile --name EmuLinks main.py
-      - name: Renombrar
-        shell: bash
-        run: mv dist/EmuLinks.exe "dist/EmuLinks-windows-${{ matrix.arch }}.exe"
+        run: |
+          extra=()
+          if [ "${{ matrix.gen }}" = win7 ]; then
+            # Universal C Runtime junto al exe: así corre en Windows 7 sin la KB2999226
+            ucrt=$(ls -d "/c/Program Files (x86)/Windows Kits/10/Redist/"*/ucrt/DLLs/${{ matrix.arch }} | tail -1)
+            extra=(--add-binary "$(cygpath -w "$ucrt")\\*.dll;.")
+          fi
+          common=(--noconsole --name EmuLinks --icon packaging/icon/emulinks.ico
+                  --add-data "emulinks/assets;emulinks/assets" "${extra[@]}")
+          python -m PyInstaller "${common[@]}" --onefile main.py
+          python -m PyInstaller "${common[@]}" --onedir --distpath onedir --workpath build-onedir main.py
+          mv dist/EmuLinks.exe "dist/EmuLinks-${{ matrix.gen }}-${{ matrix.arch }}-portable.exe"
+      - name: Probar el exe (arranca y sigue vivo 15 s)
+        shell: pwsh
+        run: |
+          $p = Start-Process -PassThru "dist\EmuLinks-${{ matrix.gen }}-${{ matrix.arch }}-portable.exe"
+          Start-Sleep 15
+          if ($p.HasExited) { Write-Error "El exe terminó con código $($p.ExitCode)"; exit 1 }
+          Stop-Process -Id $p.Id -Force
       - uses: actions/upload-artifact@v4
         with:
-          name: EmuLinks-windows-${{ matrix.arch }}
-          path: dist/EmuLinks-windows-${{ matrix.arch }}.exe
+          name: EmuLinks-${{ matrix.gen }}-${{ matrix.arch }}-portable
+          path: dist/EmuLinks-${{ matrix.gen }}-${{ matrix.arch }}-portable.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: onedir-${{ matrix.gen }}-${{ matrix.arch }}
+          path: onedir/EmuLinks
+
+  installer:
+    needs: windows
+    strategy:
+      matrix:
+        include:
+          - { gen: win10, minver: "10.0" }
+          - { gen: win7,  minver: "6.1sp1" }
+    name: instalador (${{ matrix.gen }})
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: onedir-${{ matrix.gen }}-x64
+          path: onedir/x64
+      - uses: actions/download-artifact@v4
+        with:
+          name: onedir-${{ matrix.gen }}-x86
+          path: onedir/x86
+      - name: Inno Setup 6
+        run: |
+          iscc="/c/Program Files (x86)/Inno Setup 6/ISCC.exe"
+          if [ ! -f "$iscc" ]; then
+            curl -fsSL -o is.exe https://files.jrsoftware.org/is/6/innosetup-6.5.0.exe
+            ./is.exe //VERYSILENT //SUPPRESSMSGBOXES //NORESTART //SP-
+          fi
+          "$iscc" 2>&1 | head -2 || true
+      - name: Compilar instalador
+        run: |
+          ver=$(sed -n 's/^APP_VERSION *= *"\(.*\)"/\1/p' emulinks/__init__.py)
+          "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" //Q \
+            "//DAppVer=$ver" "//DGen=${{ matrix.gen }}" "//DMinVer=${{ matrix.minver }}" \
+            "//DSrcX64=$(cygpath -w "$PWD/onedir/x64")" "//DSrcX86=$(cygpath -w "$PWD/onedir/x86")" \
+            packaging/windows/emulinks.iss
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EmuLinks-${{ matrix.gen }}-setup
+          path: packaging/windows/Output/EmuLinks-${{ matrix.gen }}-setup.exe
 
   linux-x64:
     runs-on: ubuntu-22.04
@@ -74,9 +142,10 @@ jobs:
         run: python -m pytest -q tests
       - name: Compilar
         run: |
-          pyinstaller --noconsole --strip --onefile --name EmuLinks main.py
+          common="--noconsole --strip --name EmuLinks --add-data emulinks/assets:emulinks/assets"
+          pyinstaller $common --onefile main.py
           tar -C dist -czf dist/EmuLinks-linux-x64.tar.gz EmuLinks
-          pyinstaller --noconsole --strip --onedir --name EmuLinks             --distpath onedir --workpath build-onedir main.py
+          pyinstaller $common --onedir --distpath onedir --workpath build-onedir main.py
           bash packaging/linux/build_appimage.sh onedir/EmuLinks x86_64 dist/EmuLinks-linux-x86_64.AppImage
       - name: Probar el AppImage (arranca y sigue vivo 15 s)
         env:
@@ -100,7 +169,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Probar y compilar en Debian i386
         run: |
-          docker run --rm --platform linux/386 -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)"             -v "$PWD:/src" -w /src i386/debian:bookworm bash -ec '
+          docker run --rm --platform linux/386 -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
+            -v "$PWD:/src" -w /src i386/debian:bookworm bash -ec '
             apt-get update -qq
             DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
               python3 python3-pip python3-pytest binutils build-essential zlib1g-dev \
@@ -108,9 +178,10 @@ jobs:
               libgl1 libegl1 fonts-dejavu-core >/dev/null
             QT_QPA_PLATFORM=offscreen python3 -m pytest -q -p no:cacheprovider tests
             pip3 install -q --break-system-packages pyinstaller
-            pyinstaller --noconsole --strip --onefile --name EmuLinks main.py
+            common="--noconsole --strip --name EmuLinks --add-data emulinks/assets:emulinks/assets"
+            pyinstaller $common --onefile main.py
             tar -C dist -czf dist/EmuLinks-linux-x86.tar.gz EmuLinks
-            pyinstaller --noconsole --strip --onedir --name EmuLinks               --distpath onedir --workpath build-onedir main.py
+            pyinstaller $common --onedir --distpath onedir --workpath build-onedir main.py
             # el binario congelado arranca y sigue vivo 15 s
             set +e; QT_QPA_PLATFORM=offscreen timeout 15 onedir/EmuLinks/EmuLinks; code=$?; set -e
             [ "$code" -eq 124 ] || { echo "El ejecutable terminó con código $code"; exit 1; }
@@ -127,13 +198,14 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [windows, linux-x64, linux-x86]
+    needs: [windows, installer, linux-x64, linux-x86]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/download-artifact@v4
         with:
+          pattern: EmuLinks-*
           path: out
           merge-multiple: true
       - name: Publicar Release

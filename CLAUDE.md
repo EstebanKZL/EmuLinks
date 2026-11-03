@@ -42,7 +42,12 @@ python tests/test_emulinks.py     # o: python -m pytest tests -q
   `--collect-data PySide6`: mete todos los binarios de Qt (+150 MB); el hook
   de PyInstaller ya trae las traducciones de los diálogos (`qtbase_es.qm`).
   AppImage: `pyinstaller --onedir …` y `packaging/linux/build_appimage.sh`
-  (ícono y `.desktop` en `packaging/linux/`).
+  (`.desktop` en `packaging/linux/`). Instalador Windows: Inno Setup 6.5+,
+  `packaging/windows/emulinks.iss` (x64 y x86 en el mismo setup).
+- Ícono: la fuente es `packaging/icon/emulinks.svg`; si lo cambiás corré
+  `python packaging/make_icons.py` (PySide6 + Pillow) y versioná los `.ico`/`.png`
+  generados. El ícono de ventana (`emulinks/assets/emulinks.png`) se empaqueta
+  con `--add-data` (`;` en Windows, `:` en Linux).
 
 ## Estructura
 
@@ -168,8 +173,11 @@ queda en `config.prev.json`.
   (sin mail personal). Cada colaborador usa su propio noreply de GitHub.
 - CI y builds: `.github/workflows/build.yml` corre `tests/` y compila
   Windows x64/x86 y Linux x64/x86 en cada push. Release: subí `APP_VERSION`,
-  `git tag vX.Y && git push origin vX.Y`. Los 32 bits usan PySide2 (Qt 5): no
-  uses API exclusiva de PySide6 ni sintaxis de Python > 3.10 (f-strings 3.12).
+  `git tag vX.Y && git push origin vX.Y`. Windows 7/8 y los 32 bits usan
+  PySide2 (Qt 5) y Windows 7 usa **Python 3.8**: no uses API exclusiva de
+  PySide6 ni sintaxis/stdlib de Python > 3.8 (`list[str]` en runtime,
+  `str.removeprefix`, `match`, `X | Y` fuera de anotaciones, f-strings 3.12).
+  Chequeo rápido: `pip install vermin && vermin -t=3.8- --violations emulinks`.
   `.gitignore` excluye `config.json`, backups y builds; `.gitattributes`
   fuerza LF para todos.
 - Una rama por tarea (`feat/…`, `fix/…`), PR con descripción y resultado de
