@@ -38,8 +38,11 @@ python tests/test_emulinks.py     # o: python -m pytest tests -q
   capturas sin tocar las preferencias del usuario, reemplazá
   `emulinks.ui.qt.QSettings` por un stub **antes** de importar `emulinks.ui.theme`.
 - Empaquetado:
-  `pyinstaller --noconsole --onefile --name EmuLinks --collect-data PySide6 main.py`
-  (`--collect-data` trae las traducciones de los diálogos de Qt).
+  `pyinstaller --noconsole --onefile --name EmuLinks main.py`. **No** agregues
+  `--collect-data PySide6`: mete todos los binarios de Qt (+150 MB); el hook
+  de PyInstaller ya trae las traducciones de los diálogos (`qtbase_es.qm`).
+  AppImage: `pyinstaller --onedir …` y `packaging/linux/build_appimage.sh`
+  (ícono y `.desktop` en `packaging/linux/`).
 
 ## Estructura
 

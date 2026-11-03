@@ -13,7 +13,7 @@ Paquetes:
 #  ▶  INFORMACIÓN DE LA APLICACIÓN
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 APP_NAME      = "EmuLinks"
-APP_VERSION   = "6.2"
+APP_VERSION   = "6.3"
 APP_DEVELOPER = "EstebanKZL"
 APP_URL       = "https://github.com/EstebanKZL/EmuLinks"
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

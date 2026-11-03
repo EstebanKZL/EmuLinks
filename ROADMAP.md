@@ -140,6 +140,7 @@ en qué está cada cosa.
   por tarjeta (carpeta compartida, emuladores, estado).
 - [x] **Git + GitHub**: repo público `EstebanKZL/EmuLinks` (v6.2).
 - [x] CI (GitHub Actions): tests + builds portables Windows/Linux x64/x86 y Release por tag (v6.2).
+- [x] AppImage x86_64/i686 y builds sin `--collect-data PySide6` (~4 veces más chicos) (v6.3).
 - [ ] Logging a archivo (`logs/sync-YYYYMMDD.log`) además de la consola.
 - [ ] Build reproducible del .exe: `EmuLinks.spec` de PyInstaller con icono,
   versión del archivo, `--noconsole` y `--collect-data PySide6` (hoy se arma a

@@ -4,6 +4,9 @@
 #   windows-x86  Python 3.10 32 bits + PySide2 (Qt6/PySide6 no existe en 32 bits)
 #   linux-x64    Ubuntu 22.04 + PySide6 (glibc 2.35: corre en distros de 2022 en adelante)
 #   linux-x86    contenedor Debian 12 i386 + PySide2 de los paquetes de Debian
+# Linux sale en dos formatos: AppImage (onedir empaquetado) y tar.gz (onefile).
+# No usar --collect-data PySide6: mete todos los binarios de Qt (+150 MB); el
+# hook de PyInstaller ya trae las traducciones (qtbase_es.qm).
 # Un tag vX.Y publica los 4 ejecutables como Release en GitHub.
 name: build
 
@@ -26,11 +29,9 @@ jobs:
           - arch: x64
             python: "3.12"
             qt: PySide6
-            extra: --collect-data PySide6
           - arch: x86
             python: "3.10"
             qt: PySide2==5.15.2.1
-            extra: ""
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -45,7 +46,7 @@ jobs:
           QT_QPA_PLATFORM: offscreen
         run: python -m pytest -q tests
       - name: Compilar
-        run: pyinstaller --noconsole --onefile --name EmuLinks ${{ matrix.extra }} main.py
+        run: pyinstaller --noconsole --onefile --name EmuLinks main.py
       - name: Renombrar
         shell: bash
         run: mv dist/EmuLinks.exe "dist/EmuLinks-windows-${{ matrix.arch }}.exe"
@@ -73,12 +74,25 @@ jobs:
         run: python -m pytest -q tests
       - name: Compilar
         run: |
-          pyinstaller --noconsole --onefile --name EmuLinks --collect-data PySide6 main.py
+          pyinstaller --noconsole --strip --onefile --name EmuLinks main.py
           tar -C dist -czf dist/EmuLinks-linux-x64.tar.gz EmuLinks
+          pyinstaller --noconsole --strip --onedir --name EmuLinks             --distpath onedir --workpath build-onedir main.py
+          bash packaging/linux/build_appimage.sh onedir/EmuLinks x86_64 dist/EmuLinks-linux-x86_64.AppImage
+      - name: Probar el AppImage (arranca y sigue vivo 15 s)
+        env:
+          QT_QPA_PLATFORM: offscreen
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: |
+          set +e
+          timeout 15 dist/EmuLinks-linux-x86_64.AppImage
+          code=$?
+          [ "$code" -eq 124 ] || { echo "El AppImage terminó con código $code"; exit 1; }
       - uses: actions/upload-artifact@v4
         with:
           name: EmuLinks-linux-x64
-          path: dist/EmuLinks-linux-x64.tar.gz
+          path: |
+            dist/EmuLinks-linux-x64.tar.gz
+            dist/EmuLinks-linux-x86_64.AppImage
 
   linux-x86:
     runs-on: ubuntu-22.04
@@ -86,7 +100,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Probar y compilar en Debian i386
         run: |
-          docker run --rm --platform linux/386 -v "$PWD:/src" -w /src i386/debian:bookworm bash -ec '
+          docker run --rm --platform linux/386 -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)"             -v "$PWD:/src" -w /src i386/debian:bookworm bash -ec '
             apt-get update -qq
             DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
               python3 python3-pip python3-pytest binutils build-essential zlib1g-dev \
@@ -94,13 +108,22 @@ jobs:
               libgl1 libegl1 fonts-dejavu-core >/dev/null
             QT_QPA_PLATFORM=offscreen python3 -m pytest -q -p no:cacheprovider tests
             pip3 install -q --break-system-packages pyinstaller
-            pyinstaller --noconsole --onefile --name EmuLinks main.py
+            pyinstaller --noconsole --strip --onefile --name EmuLinks main.py
             tar -C dist -czf dist/EmuLinks-linux-x86.tar.gz EmuLinks
+            pyinstaller --noconsole --strip --onedir --name EmuLinks               --distpath onedir --workpath build-onedir main.py
+            # el binario congelado arranca y sigue vivo 15 s
+            set +e; QT_QPA_PLATFORM=offscreen timeout 15 onedir/EmuLinks/EmuLinks; code=$?; set -e
+            [ "$code" -eq 124 ] || { echo "El ejecutable terminó con código $code"; exit 1; }
+            chown -R "$HOST_UID:$HOST_GID" dist onedir
           '
+      - name: AppImage i686
+        run: bash packaging/linux/build_appimage.sh onedir/EmuLinks i686 dist/EmuLinks-linux-i686.AppImage
       - uses: actions/upload-artifact@v4
         with:
           name: EmuLinks-linux-x86
-          path: dist/EmuLinks-linux-x86.tar.gz
+          path: |
+            dist/EmuLinks-linux-x86.tar.gz
+            dist/EmuLinks-linux-i686.AppImage
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')

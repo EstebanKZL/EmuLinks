@@ -15,10 +15,12 @@ ejecutable por sistema; no hace falta instalar Python:
 |---|---|
 | `EmuLinks-windows-x64.exe` | Windows 10/11 64 bits |
 | `EmuLinks-windows-x86.exe` | Windows 7/8/10 32 bits (Qt 5) |
-| `EmuLinks-linux-x64.tar.gz` | Linux 64 bits (glibc 2.35+, p. ej. Ubuntu 22.04+) |
-| `EmuLinks-linux-x86.tar.gz` | Linux 32 bits (Qt 5, glibc 2.36+, p. ej. Debian 12) |
+| `EmuLinks-linux-x86_64.AppImage` / `EmuLinks-linux-x64.tar.gz` | Linux 64 bits (glibc 2.35+, p. ej. Ubuntu 22.04+) |
+| `EmuLinks-linux-i686.AppImage` / `EmuLinks-linux-x86.tar.gz` | Linux 32 bits (Qt 5, glibc 2.36+, p. ej. Debian 12) |
 
-En Linux: `tar xzf EmuLinks-linux-*.tar.gz && ./EmuLinks`.
+En Linux, el AppImage: `chmod +x EmuLinks-linux-*.AppImage && ./EmuLinks-linux-*.AppImage`
+(si tu distro no tiene FUSE: agregá `--appimage-extract-and-run`).
+El tar.gz: `tar xzf EmuLinks-linux-*.tar.gz && ./EmuLinks`.
 
 ## Cómo correrlo
 
@@ -36,7 +38,7 @@ los backups con `zipfile`/`shutil` (todo librería estándar).
 
 ```bash
 pip install pyinstaller
-pyinstaller --noconsole --onefile --name EmuLinks --collect-data PySide6 main.py
+pyinstaller --noconsole --onefile --name EmuLinks main.py
 ```
 
 Los 4 ejecutables de Releases los arma GitHub Actions
