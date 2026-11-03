@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# PyInstaller
+build/
+dist/
+*.spec
+
+# Configuración y backups personales (nunca al repo)
+config.json
+config.prev.json
+config.corrupt_*.json
+Backup-EmuLinks/
+*_backup_*.zip
+
+# Editores / sistema
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Claude Code (configuración local)
+.claude/settings.local.json

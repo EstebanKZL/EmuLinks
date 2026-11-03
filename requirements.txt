@@ -1,0 +1,12 @@
+# Windows 10/11 / Linux (Python 3.10+)
+PySide6>=6.4.0
+
+# Windows 7 (Python 3.8) — usar esta en vez de la de arriba
+# PySide2
+
+# EmuLinks no usa otras dependencias: symlinks (os/pathlib), backups
+# (zipfile/shutil) y detección (os.scandir/fnmatch), todo librería estándar.
+
+# Solo para desarrollo / empaquetado
+# pytest
+# pyinstaller
