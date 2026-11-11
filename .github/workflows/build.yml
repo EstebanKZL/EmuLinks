@@ -1,0 +1,197 @@
+# Barrido de secretos + tests + builds con Nuitka de todas las plataformas.
+# Cada push y PR compila y prueba (sin publicar). Un tag vX.Y.Z además crea el
+# Release con los ejecutables, SHA256SUMS.txt y las notas del CHANGELOG.
+#   win-x64      Python 3.12 + PySide6   Windows 10/11 64 bits
+#   win7-x64     Python 3.8  + PySide2   Windows 7 a 11, 64 bits
+#   win7-x86     Python 3.8  + PySide2   Windows 7 a 11, 32 bits (PySide6 no existe en 32 bits)
+#   linux-x86_64 Ubuntu 22.04 + PySide6  AppImage (glibc 2.35+)
+#   linux-i686   Debian 12 i386 + PySide2 de Debian  AppImage (glibc 2.36+)
+# La línea win7 se compila en el mismo windows-2022: apunta a Windows 7 porque usa
+# Python 3.8 + PySide2 y lleva la Universal CRT junto al .exe (scripts/build.py).
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read      # en un PR, gitleaks lee la lista de commits del PR
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # Acciones de terceros fijadas a un commit exacto (reciben el token).
+      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7  # v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Sin esto sube gitleaks-results.sarif como artefacto y el job release
+          # (que baja todos los artefactos) lo publicaría en el Release.
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
+
+  tests:
+    # En Windows: PySide se importa sin instalar librerías del sistema (en Ubuntu
+    # hace falta apt, y los mirrors del runner a veces no resuelven DNS).
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python: "3.8"      # el mismo Python que los builds de Windows 7
+            qt: PySide2==5.15.2.1
+          - python: "3.12"
+            qt: PySide6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install "${{ matrix.qt }}" pytest
+      - run: python -m pytest -q tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+
+  windows:
+    needs: [secrets, tests]
+    runs-on: windows-2022
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: win-x64          # PySide6: Windows 10/11
+            python: "3.12"
+            arch: x64
+            reqs: -r requirements.txt -r requirements-build.txt
+          - name: win7-x64         # PySide2 / Python 3.8: Windows 7, 8, 10 y 11
+            python: "3.8"
+            arch: x64
+            reqs: -r requirements-legacy.txt
+          - name: win7-x86         # 32 bits: solo existe con PySide2
+            python: "3.8"
+            arch: x86
+            reqs: -r requirements-legacy.txt
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          architecture: ${{ matrix.arch }}
+      - run: pip install ${{ matrix.reqs }}
+      - name: Inno Setup
+        shell: pwsh
+        run: if (-not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
+      - run: python scripts/build.py
+      - name: Prueba de humo del ejecutable compilado
+        shell: pwsh
+        env:
+          EMULINKS_SMOKE_TEST: "1"
+        run: |
+          $exe = Get-ChildItem build/nuitka -Recurse -Filter EmuLinks.exe | Where-Object { $_.DirectoryName -like '*.dist' } | Select-Object -First 1
+          $p = Start-Process $exe.FullName -PassThru -Wait -NoNewWindow
+          if ($p.ExitCode -ne 0) { throw "La prueba de humo falló (código $($p.ExitCode))" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: dist/release/*
+
+  linux:
+    needs: [secrets, tests]
+    runs-on: ubuntu-22.04      # glibc 2.35: el AppImage corre en distros de 2022 en adelante
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Librerías de sistema para compilar y para la prueba de humo
+        run: >
+          sudo apt-get -o Acquire::Retries=5 update -q && sudo apt-get -o Acquire::Retries=5 install -y -q patchelf xvfb
+          libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libfontconfig1 libdbus-1-3
+          libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-image0 libxcb-render-util0
+          libxcb-randr0 libxcb-shape0 libxcb-xinerama0 libxcb-xkb1
+      - run: pip install -r requirements.txt -r requirements-build.txt
+      - name: appimagetool (versión fija, verificada por SHA-256)
+        run: |
+          wget -q https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage
+          echo "ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0  appimagetool-x86_64.AppImage" | sha256sum -c -
+          chmod +x appimagetool-x86_64.AppImage
+      - run: python scripts/build.py --appimage --appimagetool ./appimagetool-x86_64.AppImage
+      - name: Prueba de humo del AppImage
+        env:
+          EMULINKS_SMOKE_TEST: "1"
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: |
+          chmod +x dist/release/*.AppImage
+          xvfb-run -a timeout 120 dist/release/*.AppImage
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-x86_64
+          path: dist/release/*
+
+  linux-i686:
+    needs: [secrets, tests]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compilar y probar en Debian 12 i386 (PySide2 de Debian)
+        run: |
+          docker run --rm --platform linux/386 -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
+            -v "$PWD:/src" -w /src i386/debian:bookworm bash -ec '
+            apt-get -o Acquire::Retries=5 update -qq
+            DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=5 install -y -qq \
+              python3 python3-dev python3-pip python3-pytest gcc g++ patchelf ccache xvfb xauth \
+              python3-pyside2.qtcore python3-pyside2.qtgui python3-pyside2.qtwidgets python3-pyside2.qtsvg \
+              libgl1 libegl1 fonts-dejavu-core >/dev/null
+            QT_QPA_PLATFORM=offscreen python3 -m pytest -q -p no:cacheprovider tests
+            pip3 install -q --break-system-packages nuitka
+            python3 scripts/build.py --standalone-only
+            EMULINKS_SMOKE_TEST=1 xvfb-run -a timeout 120 build/nuitka/main.dist/EmuLinks
+            chown -R "$HOST_UID:$HOST_GID" build dist
+          '
+      - name: appimagetool (versión fija, verificada por SHA-256)
+        run: |
+          wget -q https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage
+          echo "ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0  appimagetool-x86_64.AppImage" | sha256sum -c -
+          chmod +x appimagetool-x86_64.AppImage
+      - name: AppImage i686 (runtime de 32 bits, empaquetado en el runner de 64)
+        run: python3 scripts/build.py --package-appimage build/nuitka/main.dist --arch i686 --appimagetool ./appimagetool-x86_64.AppImage
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-i686
+          path: dist/release/*
+
+  release:
+    # Se publica aunque falle Linux (p. ej. por la red de los runners de Ubuntu): al
+    # reintentar el job de Linux, este job vuelve a correr y agrega el AppImage.
+    if: startsWith(github.ref, 'refs/tags/v') && !cancelled() && needs.windows.result == 'success'
+    needs: [windows, linux, linux-i686]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: SHA256SUMS y notas del CHANGELOG
+        run: |
+          cd artifacts && sha256sum * > SHA256SUMS.txt && cd ..
+          ver="${GITHUB_REF_NAME#v}"
+          awk -v v="$ver" '$0 ~ "^## \\[" v "\\]" {on=1; next} on && /^## \[/ {exit} on' CHANGELOG.md > notes.md
+          test -s notes.md || echo "Versión $ver" > notes.md
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2.6.2
+        with:
+          files: artifacts/*
+          body_path: notes.md

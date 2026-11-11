@@ -1,0 +1,16 @@
+# Revisiones antes de cada commit. Activar una vez por clon:
+#   pip install pre-commit && pre-commit install
+# El mismo gitleaks corre también en CI (.github/workflows/build.yml).
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-added-large-files        # frena binarios pesados por error
+        args: ["--maxkb=2048"]
+      - id: check-yaml

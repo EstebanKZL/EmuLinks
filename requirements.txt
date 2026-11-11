@@ -1,0 +1,2 @@
+# Windows 10/11 x64 y Linux x86_64 (Python 3.10+). Línea "moderna".
+PySide6>=6.5          # incluye QtSvg (íconos)

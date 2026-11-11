@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=EmuLinks
+Comment=Your emulator saves, BIOS and settings in one place
+Comment[es]=Partidas, BIOS y configuración de tus emuladores en un solo lugar
+Exec=EmuLinks
+Icon=emulinks
+Categories=Utility;
+Terminal=false

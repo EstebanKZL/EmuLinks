@@ -1,0 +1,4 @@
+# Desarrollo: tests y revisiones antes de cada commit.
+pytest
+pre-commit
+vermin          # compatibilidad con Python 3.8 (línea Windows 7)

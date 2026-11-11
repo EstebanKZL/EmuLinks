@@ -1,0 +1,78 @@
+# ── Salida de builds y empaquetado ──
+/dist/
+/build/
+*.spec
+*.spec.bak
+*.manifest
+*.exe
+*.msi
+*.AppImage
+*.dmg
+*.part
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+.nuitka/
+*.dist/
+*.build/
+*.onefile-build/
+# informes de error de Nuitka (tienen rutas locales)
+nuitka-crash-report.xml
+
+# ── Entornos y dependencias ──
+.venv*/
+venv*/
+env/
+*.egg-info/
+.pytest_cache/
+
+# ── Secretos y configuración local (NUNCA subir) ──
+.env
+.env.*
+*.key
+*.pem
+*.pfx
+*.p12
+*.keystore
+secrets.*
+config.local.*
+credentials*
+*token*
+*.secret
+
+# ── Datos personales / runtime (los genera la app en la PC del usuario) ──
+config.json
+config.prev.json
+config.corrupt_*.json
+Backup-EmuLinks/
+*_backup_*.zip
+*.log
+*.sqlite
+*.sqlite3
+*.db
+settings.ini
+QSettings*
+/logs/
+/data/
+/capturas/
+/salida/
+
+# ── Sistema operativo y editor ──
+Thumbs.db
+desktop.ini
+.DS_Store
+.idea/
+.vscode/
+*.code-workspace
+
+# ── Archivos de asistentes de IA (uso interno, NO se publican) ──
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+.cursor/
+.cursorrules
+.aider*
+AGENTS.md
+GEMINI.md
+.github/copilot-instructions.md

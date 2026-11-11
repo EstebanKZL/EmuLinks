@@ -1,0 +1,4 @@
+# Windows 7/8/10/11 x64 y x86 (Python 3.8.10, última versión con instalador para Win7).
+# No existe PySide6 de 32 bits ni para Windows 7: se usa PySide2.
+PySide2==5.15.2.1
+nuitka
